@@ -90,6 +90,7 @@ func resolve(ch chan string, out chan DnsRecordResult) {
 		dns.TypeNS,
 		dns.TypeMX,
 		dns.TypeSOA,
+		dns.TypeCNAME,
 	}
 
 	for domain := range ch {
@@ -130,7 +131,8 @@ func ip2int(IpAddrString string) *big.Int {
 
 func getRecordString(RecordType uint16, record dns.RR) string {
 
-        recordType := dns.TypeToString[RecordType]
+	// Lets only look at the RR we actually got an answer for
+	recordType := dns.TypeToString[record.Header().Rrtype]
 
         if (recordType == "A") {
                 return record.(*dns.A).A.String()
@@ -150,6 +152,9 @@ func getRecordString(RecordType uint16, record dns.RR) string {
         if (recordType == "SOA") {
               	// Return the mail box of the SOA
             	return record.(*dns.SOA).Mbox
+        }
+	if (recordType == "CNAME") {
+                return record.(*dns.CNAME).Target
         }
 
 	return ""
