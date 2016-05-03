@@ -14,6 +14,7 @@ type DnsRecordResult struct {
 	Domain string
 	RecordType uint16
 	Value string
+	IPDec int64
 }
 
 var numDnsGoroutines = flag.Int("dns-goroutines", 10, "Number of DNS goroutines")
@@ -103,6 +104,36 @@ func resolve(ch chan string, out chan DnsRecordResult) {
 			}
 		}
 	}
+}
+
+func getRecord(RecordType uint16, record dns.RR) string {
+
+        recordType := dns.TypeToString[RecordType]
+
+        if (recordType == "A") {
+                return record.(*dns.A).A.String()
+        }
+        if (recordType == "AAAA") {
+                return record.(*dns.AAAA).AAAA.String()
+        }
+        if (recordType == "NS") {
+                return record.(*dns.NS).Ns
+        }
+        if (recordType == "MX") {
+                return record.(*dns.MX).Mx
+        }
+        if (recordType == "TXT") {
+                return record.(*dns.TXT).Txt[0]
+        }
+        if (recordType == "SOA") {
+              	// Return the mail box of the SOA
+            	return record.(*dns.SOA).Mbox
+        }
+        if (recordType == "CNAME") {
+                return record.(*dns.CNAME).Target
+        }
+
+	return ""
 }
 
 func queryDNS(domain string, recordType uint16) []dns.RR {
