@@ -75,7 +75,7 @@ func saveResults(out chan DnsRecordResult) {
 	}
 
 	for result := range out {
-		ins.Bind(result.Domain, dns.TypeToString[result.RecordType], result.Value, result.IPDec)
+		ins.Bind(result.Domain, dns.TypeToString[result.RecordType], result.Value, result.IPDec.String())
 		_, err = ins.Run()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "** ERR:", err)
@@ -115,7 +115,7 @@ func ip2int(IpAddrString string) *big.Int {
 	IpAddr := net.ParseIP(IpAddrString);
 
 	if IpAddr == nil {
-		return nil
+		return big.NewInt(0)
 	}
 
         IpInt := big.NewInt(0)
@@ -125,7 +125,8 @@ func ip2int(IpAddrString string) *big.Int {
         } else {
                 IpInt.SetBytes(IpAddr)
         }
-        return IpInt
+	
+	return IpInt
 }
 
 func getRecordString(RecordType uint16, record dns.RR) string {
