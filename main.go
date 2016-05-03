@@ -14,7 +14,7 @@ import (
 
 type DnsRecordResult struct {
 	Domain string
-	RecordType uint16
+	RecordType string
 	Value string
 	IPDec *big.Int
 }
@@ -75,7 +75,7 @@ func saveResults(out chan DnsRecordResult) {
 	}
 
 	for result := range out {
-		ins.Bind(result.Domain, dns.TypeToString[result.RecordType], result.Value, result.IPDec.String())
+		ins.Bind(result.Domain, result.RecordType, result.Value, result.IPDec.String())
 		_, err = ins.Run()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "** ERR:", err)
@@ -98,10 +98,11 @@ func resolve(ch chan string, out chan DnsRecordResult) {
 			fmt.Println(domain)
 			answer := queryDNS(domain, recordType)
 			for _, record := range answer {
-				recordString := getRecordString(recordType, record)
+				answerRR := dns.TypeToString[record.Header().Rrtype]
+				recordString := getRecordString(answerRR, record)
 				out <- DnsRecordResult{
 					Domain: domain,
-					RecordType: recordType,
+					RecordType: answerRR,
 					Value: recordString,
 					IPDec: ip2int(recordString),
 				}
@@ -129,11 +130,7 @@ func ip2int(IpAddrString string) *big.Int {
 	return IpInt
 }
 
-func getRecordString(RecordType uint16, record dns.RR) string {
-
-	// Lets only look at the RR we actually got an answer for
-	recordType := dns.TypeToString[record.Header().Rrtype]
-
+func getRecordString(recordType string, record dns.RR) string {
         if (recordType == "A") {
                 return record.(*dns.A).A.String()
         }
