@@ -90,7 +90,6 @@ func resolve(ch chan string, out chan DnsRecordResult) {
 		dns.TypeNS,
 		dns.TypeMX,
 		dns.TypeSOA,
-		dns.TypeCNAME,
 	}
 
 	for domain := range ch {
@@ -151,9 +150,6 @@ func getRecordString(RecordType uint16, record dns.RR) string {
         if (recordType == "SOA") {
               	// Return the mail box of the SOA
             	return record.(*dns.SOA).Mbox
-        }
-        if (recordType == "CNAME") {
-                return record.(*dns.CNAME).Target
         }
 
 	return ""
