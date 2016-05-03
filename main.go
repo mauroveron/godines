@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"net"
+	"math/big"
 	"github.com/miekg/dns"
 	"github.com/ziutek/mymysql/mysql"
 	_ "github.com/ziutek/mymysql/native" // Native engine
@@ -14,7 +16,7 @@ type DnsRecordResult struct {
 	Domain string
 	RecordType uint16
 	Value string
-	IPDec int64
+	IPDec *big.Int
 }
 
 var numDnsGoroutines = flag.Int("dns-goroutines", 10, "Number of DNS goroutines")
@@ -67,13 +69,13 @@ func saveResults(out chan DnsRecordResult) {
 		panic(err)
 	}
 
-	ins, err := db.Prepare("INSERT INTO dns_records (`domain`, `type`, `value`) VALUES (?, ?, ?)")
+	ins, err := db.Prepare("INSERT INTO dns_records (`domain`, `type`, `value`, `ip_dec`) VALUES (?, ?, ?)")
 	if err != nil {
 		panic(err)
 	}
 
 	for result := range out {
-		ins.Bind(result.Domain, dns.TypeToString[result.RecordType], result.Value)
+		ins.Bind(result.Domain, dns.TypeToString[result.RecordType], result.Value, result.IPDec)
 		_, err = ins.Run()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "** ERR:", err)
@@ -96,17 +98,37 @@ func resolve(ch chan string, out chan DnsRecordResult) {
 			fmt.Println(domain)
 			answer := queryDNS(domain, recordType)
 			for _, record := range answer {
+				recordString := getRecordString(recordType, record)
 				out <- DnsRecordResult{
 					Domain: domain,
 					RecordType: recordType,
-					Value:  record.String(),
+					Value: recordString,
+					IPDec: ip2int(recordString),
 				}
 			}
 		}
 	}
 }
 
-func getRecord(RecordType uint16, record dns.RR) string {
+// Convert the IP address to an Int (for MySql Storage)
+func ip2int(IpAddrString string) *big.Int {
+	IpAddr := net.ParseIP(IpAddrString);
+
+	if IpAddr == nil {
+		return nil
+	}
+
+        IpInt := big.NewInt(0)
+        // Check if we are dealing with v4/v6
+        if IpBytes := IpAddr.To4(); IpBytes != nil {
+                IpInt.SetBytes(IpBytes)
+        } else {
+                IpInt.SetBytes(IpAddr)
+        }
+        return IpInt
+}
+
+func getRecordString(RecordType uint16, record dns.RR) string {
 
         recordType := dns.TypeToString[RecordType]
 
