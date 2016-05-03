@@ -69,7 +69,7 @@ func saveResults(out chan DnsRecordResult) {
 		panic(err)
 	}
 
-	ins, err := db.Prepare("INSERT INTO dns_records (`domain`, `type`, `value`, `ip_dec`) VALUES (?, ?, ?)")
+	ins, err := db.Prepare("INSERT INTO dns_records (`domain`, `type`, `value`, `ip_dec`) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		panic(err)
 	}
