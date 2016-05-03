@@ -91,6 +91,7 @@ func resolve(ch chan string, out chan DnsRecordResult) {
 		dns.TypeMX,
 		dns.TypeSOA,
 		dns.TypeCNAME,
+		dns.TypeTXT,
 	}
 
 	for domain := range ch {
