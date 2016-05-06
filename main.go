@@ -7,9 +7,15 @@ import (
 	"os"
 	"net"
 	"math/big"
+	"math/rand"
+	"time"
 	"github.com/miekg/dns"
 	"github.com/ziutek/mymysql/mysql"
 	_ "github.com/ziutek/mymysql/native" // Native engine
+)
+
+const (
+	TIMEOUT time.Duration = 2 // seconds
 )
 
 type DnsRecordResult struct {
@@ -45,8 +51,10 @@ func main() {
 
 	ch := make(chan string, 100)
 	out := make(chan DnsRecordResult, 100)
-
-	go saveResults(out)
+	
+	for i := 0; i < 50; i++ {
+		go saveResults(out)
+	}
 
 	for i := 0; i < *numDnsGoroutines; i++ {
 		go resolve(ch, out)
@@ -59,6 +67,10 @@ func main() {
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintln(os.Stderr, "reading file:", err)
 	}
+
+
+	time.Sleep(60 * time.Second)
+
 	close(ch)
 }
 
@@ -85,9 +97,9 @@ func saveResults(out chan DnsRecordResult) {
 
 func resolve(ch chan string, out chan DnsRecordResult) {
 	recordTypes := []uint16{
+		dns.TypeNS,
 		dns.TypeA,
 		dns.TypeAAAA,
-		dns.TypeNS,
 		dns.TypeMX,
 		dns.TypeSOA,
 		dns.TypeCNAME,
@@ -96,8 +108,15 @@ func resolve(ch chan string, out chan DnsRecordResult) {
 
 	for domain := range ch {
 		for _, recordType := range recordTypes {
-			fmt.Println(domain)
+			// fmt.Println(domain)
 			answer := queryDNS(domain, recordType)
+
+			// Check that if we dont get any NS records to skip domain
+			if recordType == dns.TypeNS && answer == nil {
+				// fmt.Fprintf(os.Stderr, "** ERR: No NS records found, skipping domain - " + domain + "\n")
+				break
+			}
+
 			for _, record := range answer {
 				answerRR := dns.TypeToString[record.Header().Rrtype]
 				recordString := getRecordString(answerRR, record)
@@ -166,10 +185,14 @@ func queryDNS(domain string, recordType uint16) []dns.RR {
 	m1.Question[0] = dns.Question{dns.Fqdn(domain), recordType, dns.ClassINET}
 
 	c := new(dns.Client)
-	in, _, err := c.Exchange(m1, *dnsResolver + ":53")
+	c.ReadTimeout = TIMEOUT * 1e9
+	
+	resolver := getDnsResolver()
+
+	in, _, err := c.Exchange(m1, resolver)
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "** ERR:", err)
+		fmt.Fprintln(os.Stderr, "** ERR:", err, " ~ ", domain)
 		return nil
 	}
 
@@ -178,4 +201,13 @@ func queryDNS(domain string, recordType uint16) []dns.RR {
 	}
 
 	return in.Answer
+}
+
+func getDnsResolver() string {
+	return "45.32.3.108:53"
+
+	if rand.Int() %2 == 0 {
+		return "45.32.3.108:53"
+	}
+	return "198.98.52.140:53"
 }
